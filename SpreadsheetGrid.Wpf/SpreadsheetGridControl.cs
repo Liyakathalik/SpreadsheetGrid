@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Diagnostics;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -14,6 +15,7 @@ namespace SpreadsheetGrid.Wpf
         private Canvas? _overlay;
         private Point _dragStart;
         private ItemsControl? _cellsHost;
+
         static SpreadsheetGridControl()
         {
             DefaultStyleKeyProperty.OverrideMetadata(
@@ -28,11 +30,11 @@ namespace SpreadsheetGrid.Wpf
         }
 
         public static readonly DependencyProperty RowsProperty =
-            DependencyProperty.Register(
-                nameof(Rows),
-                typeof(int),
-                typeof(SpreadsheetGridControl),
-                new PropertyMetadata(20));
+       DependencyProperty.Register(
+           nameof(Rows),
+           typeof(int),
+           typeof(SpreadsheetGridControl),
+           new PropertyMetadata(10, OnGridSizeChanged));
 
         public int Columns
         {
@@ -41,11 +43,32 @@ namespace SpreadsheetGrid.Wpf
         }
 
         public static readonly DependencyProperty ColumnsProperty =
-            DependencyProperty.Register(
-                nameof(Columns),
-                typeof(int),
-                typeof(SpreadsheetGridControl),
-                new PropertyMetadata(10));
+     DependencyProperty.Register(
+         nameof(Columns),
+         typeof(int),
+         typeof(SpreadsheetGridControl),
+         new PropertyMetadata(10, OnGridSizeChanged));
+        private static void OnGridSizeChanged(
+    DependencyObject d,
+    DependencyPropertyChangedEventArgs e)
+        {
+            if (d is SpreadsheetGridControl control)
+            {
+                control.RebuildGrid();
+            }
+        }
+        private void RebuildGrid()
+        {
+            if (_cellsHost == null)
+                return;
+            _cellsHost.ItemsSource =
+                Enumerable.Range(0, Rows * Columns)
+                    .Select(i => new CellAddress(i / Columns, i % Columns))
+                    .ToList();
+
+            _selectionManager.Clear();
+            DrawSelection();
+        }
 
         public override void OnApplyTemplate()
         {
@@ -57,32 +80,46 @@ namespace SpreadsheetGrid.Wpf
             if (_cellsHost == null || _overlay == null)
                 return;
 
-            _cellsHost.ItemsSource =
-                Enumerable.Range(0, Rows * Columns).ToList();
+            RebuildGrid(); // ✅ ONLY source of ItemsSource
 
             _cellsHost.PreviewMouseLeftButtonDown += OnMouseDown;
             _cellsHost.PreviewMouseMove += OnMouseMove;
             _cellsHost.PreviewMouseLeftButtonUp += OnMouseUp;
         }
 
+
         private CellAddress GetCellFromPoint(Point point)
         {
             if (_cellsHost == null)
                 return new CellAddress(0, 0);
 
-            double cellWidth = _cellsHost.ActualWidth / Columns;
-            double cellHeight = _cellsHost.ActualHeight / Rows;
+            var element = _cellsHost.InputHitTest(point) as DependencyObject;
+            if (element == null)
+                return new CellAddress(0, 0);
 
-            int column = Math.Max(0, Math.Min(
-                Columns - 1,
-                (int)(point.X / cellWidth)));
+            var container = ItemsControl.ContainerFromElement(_cellsHost, element)
+                            as ContentPresenter;
 
-            int row = Math.Max(0, Math.Min(
-                Rows - 1,
-                (int)(point.Y / cellHeight)));
+            if (container?.Content is CellAddress cell)
+                return cell;
 
-            return new CellAddress(row, column);
+            return new CellAddress(0, 0);
         }
+
+
+        private static T? FindVisualParent<T>(DependencyObject child)
+            where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T parent)
+                    return parent;
+
+                child = VisualTreeHelper.GetParent(child);
+            }
+            return null;
+        }
+
 
         private void OnMouseMove(object sender, MouseEventArgs e)
         {
@@ -91,19 +128,26 @@ namespace SpreadsheetGrid.Wpf
 
             var point = e.GetPosition(_cellsHost);
             var cell = GetCellFromPoint(point);
-
+            Debug.WriteLine(_cellsHost.Items.Count);
             _selectionManager.Update(cell);
             DrawSelection();
+
+
         }
         private void OnMouseUp(object sender, MouseButtonEventArgs e)
         {
+            _cellsHost?.ReleaseMouseCapture();
             DrawSelection();
         }
 
         private void OnMouseDown(object sender, MouseButtonEventArgs e)
         {
-            _dragStart = e.GetPosition(this);
-            var cell = GetCellFromPoint(_dragStart);
+            if (_cellsHost == null) return;
+
+            _cellsHost.CaptureMouse();
+
+            var point = e.GetPosition(_cellsHost);
+            var cell = GetCellFromPoint(point);
 
             _selectionManager.Start(cell);
             DrawSelection();
@@ -119,28 +163,54 @@ namespace SpreadsheetGrid.Wpf
             if (range == null)
                 return;
 
-            double cellWidth = _cellsHost.ActualWidth / Columns;
-            double cellHeight = _cellsHost.ActualHeight / Rows;
+            var startContainer = GetContainer(range.Start);
+            var endContainer = GetContainer(range.End);
 
-            int r1 = Math.Min(range.Start.Row, range.End.Row);
-            int r2 = Math.Max(range.Start.Row, range.End.Row);
-            int c1 = Math.Min(range.Start.Column, range.End.Column);
-            int c2 = Math.Max(range.Start.Column, range.End.Column);
+            if (startContainer == null || endContainer == null)
+                return;
+
+            // Get top-left points of both cells
+            var pStart = startContainer.TransformToVisual(_overlay)
+                                       .Transform(new Point(0, 0));
+
+            var pEnd = endContainer.TransformToVisual(_overlay)
+                                   .Transform(new Point(0, 0));
+
+            // Calculate rectangle bounds correctly
+            double left = Math.Min(pStart.X, pEnd.X);
+            double top = Math.Min(pStart.Y, pEnd.Y);
+
+            double right = Math.Max(
+                pStart.X + startContainer.ActualWidth,
+                pEnd.X + endContainer.ActualWidth);
+
+            double bottom = Math.Max(
+                pStart.Y + startContainer.ActualHeight,
+                pEnd.Y + endContainer.ActualHeight);
 
             var rect = new Rectangle
             {
-                Width = (c2 - c1 + 1) * cellWidth,
-                Height = (r2 - r1 + 1) * cellHeight,
+                Width = right - left,
+                Height = bottom - top,
                 Stroke = Brushes.DodgerBlue,
                 StrokeThickness = 2,
                 Fill = new SolidColorBrush(Color.FromArgb(40, 30, 144, 255))
             };
 
-            Canvas.SetLeft(rect, c1 * cellWidth);
-            Canvas.SetTop(rect, r1 * cellHeight);
+            Canvas.SetLeft(rect, left);
+            Canvas.SetTop(rect, top);
 
             _overlay.Children.Add(rect);
         }
+
+        private FrameworkElement? GetContainer(CellAddress cell)
+        {
+            int index = cell.Row * Columns + cell.Column;
+            return _cellsHost?
+                .ItemContainerGenerator
+                .ContainerFromIndex(index) as FrameworkElement;
+        }
+
 
 
 

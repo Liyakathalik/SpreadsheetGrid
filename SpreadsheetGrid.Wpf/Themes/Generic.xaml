@@ -4,6 +4,8 @@
     xmlns:local="clr-namespace:SpreadsheetGrid.Wpf">
 
     <Style TargetType="{x:Type local:SpreadsheetGridControl}">
+        <Setter Property="UseLayoutRounding" Value="True"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="Background" Value="White"/>
         <Setter Property="BorderBrush" Value="LightGray"/>
         <Setter Property="BorderThickness" Value="1"/>
@@ -14,25 +16,32 @@
                     <Border
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}">
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                         SnapsToDevicePixels="True">
 
                         <Grid>
 
                             <!-- CELLS -->
-                            <ItemsControl x:Name="PART_Cells">
+                            <ItemsControl x:Name="PART_Cells"  UseLayoutRounding="True"
+              SnapsToDevicePixels="True">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <UniformGrid />
+                                        <UniformGrid
+                Rows="{Binding Rows, RelativeSource={RelativeSource TemplatedParent}}"
+                Columns="{Binding Columns, RelativeSource={RelativeSource TemplatedParent}}" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
 
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <Border
-                BorderBrush="#DDD"
-                BorderThickness="0.5"
-                Background="White"/>
+        Background="White"
+        BorderBrush="#B0B0B0"
+        BorderThickness="1"
+        SnapsToDevicePixels="True"/>
                                     </DataTemplate>
+
+
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 

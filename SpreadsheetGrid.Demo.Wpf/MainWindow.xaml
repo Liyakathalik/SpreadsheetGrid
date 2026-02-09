@@ -8,6 +8,6 @@
     Height="500">
 
     <controls:SpreadsheetGridControl
-        Rows="20"
+        Rows="10"
         Columns="10"/>
 </Window>
