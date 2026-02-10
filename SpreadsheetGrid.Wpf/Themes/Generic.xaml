@@ -4,11 +4,11 @@
     xmlns:local="clr-namespace:SpreadsheetGrid.Wpf">
 
     <Style TargetType="{x:Type local:SpreadsheetGridControl}">
-        <Setter Property="UseLayoutRounding" Value="True"/>
-        <Setter Property="SnapsToDevicePixels" Value="True"/>
         <Setter Property="Background" Value="White"/>
-        <Setter Property="BorderBrush" Value="LightGray"/>
+        <Setter Property="BorderBrush" Value="Gray"/>
         <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="UseLayoutRounding" Value="True"/>
 
         <Setter Property="Template">
             <Setter.Value>
@@ -16,42 +16,38 @@
                     <Border
                         Background="{TemplateBinding Background}"
                         BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}"
-                         SnapsToDevicePixels="True">
+                        BorderThickness="{TemplateBinding BorderThickness}">
 
                         <Grid>
 
                             <!-- CELLS -->
-                            <ItemsControl x:Name="PART_Cells"  UseLayoutRounding="True"
-              SnapsToDevicePixels="True">
+                            <ItemsControl x:Name="PART_Cells"
+                                          Background="White"
+                                          SnapsToDevicePixels="True"
+                                          UseLayoutRounding="True">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <UniformGrid
-                Rows="{Binding Rows, RelativeSource={RelativeSource TemplatedParent}}"
-                Columns="{Binding Columns, RelativeSource={RelativeSource TemplatedParent}}" />
+                                            Rows="{Binding Rows, RelativeSource={RelativeSource TemplatedParent}}"
+                                            Columns="{Binding Columns, RelativeSource={RelativeSource TemplatedParent}}"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
 
+                                <!-- NO CELL BORDERS -->
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border
-        Background="White"
-        BorderBrush="#B0B0B0"
-        BorderThickness="1"
-        SnapsToDevicePixels="True"/>
+                                        <Border Background="White"/>
                                     </DataTemplate>
-
-
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
+                            <!-- GRID LINES -->
+                            <Canvas x:Name="PART_GridLines"
+                                    IsHitTestVisible="False"/>
 
-
-                            <!-- SELECTION OVERLAY (next step) -->
-                            <Canvas x:Name="PART_Overlay"
-        IsHitTestVisible="False"
-        Width="{Binding ActualWidth, ElementName=PART_Cells}"
-        Height="{Binding ActualHeight, ElementName=PART_Cells}"/>
+                            <!-- SELECTION -->
+                            <Canvas x:Name="PART_Selection"
+                                    IsHitTestVisible="False"/>
 
                         </Grid>
                     </Border>
